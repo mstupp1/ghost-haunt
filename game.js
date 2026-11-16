@@ -106,19 +106,25 @@
     gr.addColorStop(0.92, 'rgba(255,255,255,0.95)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
     g.fillStyle = gr; g.fillRect(0, 0, s, s);
   });
-  const GROUND_TILE = 6;
-  const groundTex = canvasTex(512, (g, s) => {
+  // 18-unit seamless tile; everything drawn near an edge is repeated on the far side so it wraps cleanly
+  const GROUND_TILE = 18;
+  const groundTex = canvasTex(1024, (g, s) => {
     g.fillStyle = '#1b281f'; g.fillRect(0, 0, s, s);
-    for (let i = 0; i < 40; i++) {
-      const x = Math.random() * s, y = Math.random() * s, r = rand(20, 70);
-      for (const ox of [-s, 0, s]) for (const oy of [-s, 0, s]) {
-        const gr = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
-        gr.addColorStop(0, i % 2 ? 'rgba(40,30,24,0.45)' : 'rgba(34,52,36,0.5)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-        g.fillStyle = gr; g.fillRect(x + ox - r, y + oy - r, r * 2, r * 2);
-      }
+    const wrapped = (x, y, r, fn) => { for (const ox of [-s, 0, s]) for (const oy of [-s, 0, s]) if (x + ox + r > 0 && x + ox - r < s && y + oy + r > 0 && y + oy - r < s) fn(x + ox, y + oy); };
+    for (let i = 0; i < 110; i++) {
+      const x = Math.random() * s, y = Math.random() * s, r = rand(30, 120), tone = i % 3;
+      const c = tone === 0 ? 'rgba(40,30,24,0.4)' : tone === 1 ? 'rgba(34,52,36,0.45)' : 'rgba(14,20,16,0.35)';
+      wrapped(x, y, r, (cx, cy) => {
+        const gr = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+        gr.addColorStop(0, c); gr.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = gr; g.fillRect(cx - r, cy - r, r * 2, r * 2);
+      });
     }
     const cols = ['#24372a', '#16211a', '#2b3e2c', '#131d16', '#33402a', '#1f2f24'];
-    for (let i = 0; i < 16000; i++) { g.fillStyle = pick(cols); g.fillRect(Math.random() * s, Math.random() * s, rand(1, 3), rand(1, 4)); }
+    for (let i = 0; i < 60000; i++) {
+      const x = Math.random() * s, y = Math.random() * s, w = rand(1, 3), h = rand(1, 4);
+      g.fillStyle = pick(cols); wrapped(x, y, 4, (cx, cy) => g.fillRect(cx, cy, w, h));
+    }
   });
   groundTex.wrapS = groundTex.wrapT = THREE.RepeatWrapping;
   groundTex.encoding = THREE.sRGBEncoding;
@@ -275,8 +281,24 @@
   moon.shadow.bias = -0.0005;
   Object.assign(moon.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 60 });
   scene.add(moon, moon.target);
+  // the moon's shadow camera basis (it looks from MOON_OFFSET toward its target with +Y up)
+  const MOON_OFFSET = new THREE.Vector3(-10, 18, 8), SHADOW_TEXEL = (moon.shadow.camera.right - moon.shadow.camera.left) / moon.shadow.mapSize.x;
+  const MOON_Z = MOON_OFFSET.clone().normalize(), MOON_X = new THREE.Vector3(0, 1, 0).cross(MOON_Z).normalize(), MOON_Y = MOON_Z.clone().cross(MOON_X);
+  const _moonC = new THREE.Vector3();
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), new THREE.MeshStandardMaterial({ map: groundTex, roughness: 1 }));
+  const groundMat = new THREE.MeshStandardMaterial({ map: groundTex, roughness: 1 });
+  // break up the tile with slow, non-repeating world-space light and dark patches
+  groundMat.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vGroundW;')
+      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvGroundW = (modelMatrix * vec4(transformed, 1.0)).xz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vGroundW;')
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        vec2 gw = vGroundW;
+        float gPatch = sin(gw.x * 0.071 + sin(gw.y * 0.053) * 2.1) * sin(gw.y * 0.067 + sin(gw.x * 0.041) * 1.7)
+          + 0.5 * sin(gw.x * 0.17 + gw.y * 0.13 + 1.3) * sin(gw.y * 0.19 - gw.x * 0.07);
+        diffuseColor.rgb *= 0.86 + 0.2 * gPatch;`);
+  };
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), groundMat);
   groundTex.repeat.set(260 / GROUND_TILE, 260 / GROUND_TILE);
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
@@ -306,7 +328,7 @@
   const decor = [];
   const stoneMat = new THREE.MeshStandardMaterial({ color: 0x5b5a6a, roughness: 0.9 });
   const mossMat = new THREE.MeshStandardMaterial({ color: 0x46594a, roughness: 1 });
-  const dirtMat = new THREE.MeshStandardMaterial({ color: 0x2a2219, roughness: 1 });
+  const dirtMat = new THREE.MeshStandardMaterial({ color: 0x110d0a, roughness: 1 });
   const barkMat = new THREE.MeshStandardMaterial({ color: 0x2a2030, roughness: 1 });
   const ironMat = new THREE.MeshStandardMaterial({ color: 0x2c2838, roughness: 0.5, metalness: 0.6 });
   const slabGeo = new THREE.BoxGeometry(0.9, 1.1, 0.25);
@@ -425,8 +447,12 @@
     flies.update(t, px, pz);
     ground.position.set(Math.round(px / GROUND_TILE) * GROUND_TILE, 0, Math.round(pz / GROUND_TILE) * GROUND_TILE);
     skyGroup.position.set(px, 0, pz);
-    moon.position.set(px - 10, 18, pz + 8);
-    moon.target.position.set(px, 0, pz);
+    // follow the ghost in whole shadow-map texels so moving (and dashing) never makes shadows shimmer
+    const cx = px * MOON_X.x + pz * MOON_X.z, cy = px * MOON_Y.x + pz * MOON_Y.z, cz = px * MOON_Z.x + pz * MOON_Z.z;
+    const qx = Math.round(cx / SHADOW_TEXEL) * SHADOW_TEXEL, qy = Math.round(cy / SHADOW_TEXEL) * SHADOW_TEXEL;
+    _moonC.copy(MOON_X).multiplyScalar(qx).addScaledVector(MOON_Y, qy).addScaledVector(MOON_Z, cz);
+    moon.target.position.copy(_moonC);
+    moon.position.copy(_moonC).add(MOON_OFFSET);
   }
   // frenzy (0..1) reddens the night, freeze (0..1) chills it
   function updateSky(frenzy, freeze) {
@@ -1434,7 +1460,7 @@
   // =====================================================================
   // Run state
   // =====================================================================
-  const ULT_MAX = 120, DASH_CD = 2.4, STREAK_WINDOW = 2.2;
+  const ULT_MAX = 120, DASH_CD = 2.4, DASH_T = 0.24, DASH_V = 34, STREAK_WINDOW = 2.2;
   const STREAK_TIERS = [[0, 1, '#ffd35a'], [25, 1.5, '#ffd35a'], [60, 2, '#ffb36b'], [120, 3, '#ff8a2a'], [250, 4, '#ff5a8a'], [500, 5, '#c9b8ff']];
   let state = 'menu';
   let hp = 100, xp = 0, level = 1, xpNext = 5, pendingLevels = 0;
@@ -1443,7 +1469,7 @@
   let shake = 0, hitStop = 0, deathT = 0, rerolls = 2, aliveCount = 0, lanternT = 0;
   let hudDirty = true;
   const stats = { damage: 0, gold: 0 };
-  const face = { x: 0, z: 1 };
+  const face = { x: 0, z: 1 }, dashDir = { x: 0, z: 1 };
   const vel = new THREE.Vector3();
   const bosses = [];
   const D = {}; // director clocks
@@ -1896,9 +1922,11 @@
     const [ix, iz] = readInput();
     const spd = P.speed;
     if (dashT > 0) {
-      dashT -= dt;
+      // burst that eases back down to cruising speed, so leaving the dash never snaps
+      dashT = Math.max(0, dashT - dt);
+      const k = dashT / DASH_T, s = spd + (DASH_V - spd) * k;
+      vel.set(dashDir.x * s, 0, dashDir.z * s);
       particles.emit(player.position.x, 0.9, player.position.z, { count: 4, color: 0x9fdcff, speed: 0.6, life: 0.45, size: 0.5, spread: 0.3 });
-      if (dashT <= 0) vel.setLength(Math.min(vel.length(), spd));
     } else {
       const accel = spd * 7;
       vel.x += ix * accel * dt; vel.z += iz * accel * dt;
@@ -1950,8 +1978,9 @@
     let dx = ix, dz = iz;
     if (Math.hypot(dx, dz) < 0.2) { dx = face.x; dz = face.z; }
     const l = Math.hypot(dx, dz) || 1;
-    dashT = 0.22; dashCd = DASH_CD;
-    vel.set(dx / l * 22, 0, dz / l * 22);
+    dashDir.x = dx / l; dashDir.z = dz / l; face.x = dashDir.x; face.z = dashDir.z;
+    dashT = DASH_T; dashCd = DASH_CD;
+    vel.set(dashDir.x * DASH_V, 0, dashDir.z * DASH_V);
     audio.dash();
   }
   function boo() {
@@ -2250,6 +2279,7 @@
     const inRun = which !== 'menu';
     $('hud').hidden = !inRun; $('xpbar').hidden = !inRun;
     $('abilities').hidden = which !== null; $('touchCtl').hidden = which !== null;
+    $('fx2d').classList.toggle('hide', which !== null);
     if (which !== null) { for (const k in keys) keys[k] = false; touch.id = null; $('stick').classList.remove('on'); }
   }
   function pause() {
@@ -2445,8 +2475,14 @@
   // Frame
   // =====================================================================
   const clock = new THREE.Clock();
-  const camWant = new THREE.Vector3(), camLook = new THREE.Vector3();
-  let realT = 0;
+  // Follow cam: a smoothed focus point with a capped look-ahead. The camera sits at a fixed offset from
+  // the focus and always looks straight at it, so it only ever translates, never swings, and dash bursts,
+  // knockback and boss zoom all ease in instead of snapping the view.
+  const camWant = new THREE.Vector3(), camFocus = new THREE.Vector3(0, 0.8, 0), camLead = new THREE.Vector3(), camGoal = new THREE.Vector3();
+  const camFrom = new THREE.Vector3(), camFromLook = new THREE.Vector3(0, 1, 0), camLook = new THREE.Vector3();
+  let camZoom = 1, camIntro = 0, realT = 0;
+  const damp = (rate, dt) => 1 - Math.exp(-rate * dt);
+  const LEAD = 0.22;
 
   function updatePlay(dt) {
     gameTime += dt;
@@ -2540,7 +2576,7 @@
       player.position.y = 0.45 + bob;
       player.rotation.z = Math.sin(realT * 1.7) * 0.05 - vel.x * 0.015;
       player.rotation.x = vel.z * 0.015;
-      const dashStretch = dashT > 0 ? 0.25 : 0;
+      const dashStretch = 0.25 * (dashT / DASH_T);
       model.scale.set(1 - dashStretch * 0.4, 1 - dashStretch * 0.2, 1 + dashStretch);
       player.visible = invuln <= 0 || dashT > 0 || Math.floor(realT * 14) % 2 === 0 || state !== 'play';
       ghostMat.emissive.setHex(dashT > 0 ? 0x9a7aff : ult >= ULT_MAX && state === 'play' ? 0x8a6aff : 0x5d7bd8);
@@ -2555,13 +2591,28 @@
     if (state === 'menu') {
       camera.position.set(Math.sin(realT * 0.1) * 15, 9, Math.cos(realT * 0.1) * 15);
       camera.lookAt(0, 1, 0);
+      camFrom.copy(camera.position); camIntro = 1; camZoom = 1;
+      camFocus.set(0, 0.8, 0); camLead.set(0, 0, 0);
     } else {
-      const zoom = 1 + (bosses.length ? 0.08 : 0) + frenzyMix * 0.05;
-      camWant.copy(player.position).addScaledVector(CAM_OFFSET, zoom);
-      camWant.x += vel.x * 0.2; camWant.z += vel.z * 0.2; camWant.y = CAM_OFFSET.y * zoom;
-      camera.position.lerp(camWant, Math.min(1, dt * 5));
-      camLook.set(player.position.x + vel.x * 0.2, 0.8, player.position.z + vel.z * 0.2);
-      camera.lookAt(camLook);
+      // look-ahead tracks cruising velocity only: anything faster (dash, knockback) is clamped out
+      camGoal.set(vel.x, 0, vel.z);
+      const cap = Math.max(P.speed, 1);
+      if (camGoal.lengthSq() > cap * cap) camGoal.setLength(cap);
+      camLead.lerp(camGoal.multiplyScalar(LEAD), damp(2.5, dt));
+      camGoal.set(player.position.x + camLead.x, 0.8, player.position.z + camLead.z);
+      camFocus.lerp(camGoal, damp(9, dt));
+      camZoom += (1 + (bosses.length ? 0.08 : 0) + frenzyMix * 0.05 - camZoom) * damp(1.5, dt);
+      camWant.set(camFocus.x, 0, camFocus.z).addScaledVector(CAM_OFFSET, camZoom);
+      if (camIntro > 0) {
+        // swoop from the title orbit down into the follow cam
+        camIntro = Math.max(0, camIntro - dt / 0.9);
+        const k = smooth(0, 1, 1 - camIntro);
+        camera.position.lerpVectors(camFrom, camWant, k);
+        camera.lookAt(camLook.lerpVectors(camFromLook, camFocus, k));
+      } else {
+        camera.position.copy(camWant);
+        camera.lookAt(camFocus);
+      }
     }
     if (shake > 0) {
       shake = Math.max(0, shake - dt * 2);
@@ -2624,6 +2675,7 @@
       computeStats(); hudDirty = true;
     },
     setTime(s) { gameTime = s; }, boss(k) { spawnBoss(k || 'king'); }, item(k) { dropItem(k, player.position.x + 0.6, player.position.z); },
+    get cam() { return camera; }, get player() { return player; },
     god(on = true) { invuln = on ? 1e9 : 0; }, die() { hp = 1; invuln = 0; dashT = 0; hurtPlayer(999); }, ult() { ult = ULT_MAX; },
   };
 })();
