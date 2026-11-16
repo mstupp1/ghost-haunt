@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ghost Haunt</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M20 90V45a30 30 0 0 1 60 0v45l-10-8-10 8-10-8-10 8-10-8z' fill='%23eef2ff'/><circle cx='40' cy='45' r='6' fill='%230d0b16'/><circle cx='60' cy='45' r='6' fill='%230d0b16'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800&display=swap">
 <style>
@@ -13,397 +14,259 @@
     --ink: #f3f1ff;
     --muted: #a7a2c4;
     --wisp: #8fd8ff;
+    --gold: #ffd35a;
     --pumpkin: #ff8a2a;
+    --danger: #ff5a6e;
     --panel: rgba(18, 15, 32, 0.82);
     --line: rgba(143, 216, 255, 0.35);
     --display: "Lilita One", "Arial Black", system-ui, sans-serif;
     --body: "Nunito", system-ui, -apple-system, sans-serif;
     color-scheme: dark;
   }
+  [hidden] { display: none !important; }
   html, body { height: 100%; margin: 0; }
   body { background: var(--night); color: var(--ink); font-family: var(--body); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
   canvas { display: block; }
+  button { font: inherit; color: inherit; }
 
+  /* ---------- HUD ---------- */
   .hud {
-    position: fixed; inset: 0 0 auto 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
-    padding: calc(14px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
+    position: fixed; inset: 0 0 auto 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 8px;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
     pointer-events: none; font-variant-numeric: tabular-nums;
   }
-  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; min-width: 64px; }
-  .stat small { display: block; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .col { display: grid; gap: 6px; justify-items: start; }
+  .col.right { justify-items: end; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 11px; min-width: 64px; }
+  .stat small { display: block; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
   .stat b { font-family: var(--display); font-weight: 400; font-size: 24px; line-height: 1.1; }
-  .hp-bar { width: 120px; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.12); margin-top: 6px; overflow: hidden; }
-  .hp-fill { height: 100%; background: var(--wisp); transition: width 0.2s; }
-  .stats { display: flex; gap: 8px; }
-
-  .overlay {
-    position: fixed; inset: 0; display: grid; place-items: center; padding: 16px;
-    background: radial-gradient(ellipse at center, rgba(13,11,22,0.55), rgba(13,11,22,0.92));
+  .stat b .dim { color: var(--muted); font-size: 15px; }
+  .bar { width: 116px; height: 7px; border-radius: 4px; background: rgba(255,255,255,0.12); margin-top: 5px; overflow: hidden; }
+  .fill { height: 100%; width: 100%; background: var(--wisp); transform-origin: left; transition: transform 0.15s; }
+  .fill.hp.low { background: var(--danger); }
+  .stat.center { text-align: center; min-width: 120px; }
+  .stat.center .bar { width: 100%; }
+  .fill.dawn { background: linear-gradient(90deg, #5b5fc7, #c77dba 75%, #ffb36b); transition: none; }
+  .stat.right { text-align: right; }
+  .combo { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-top: 3px; opacity: 0.35; transition: opacity 0.2s; }
+  .combo.on { opacity: 1; }
+  .combo b { font-size: 16px; color: var(--gold); }
+  .combo .bar { width: 56px; margin: 0; height: 5px; }
+  .combo .fill { background: var(--gold); transition: none; }
+  .icons { display: flex; gap: 6px; }
+  .icon {
+    pointer-events: auto; width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel);
+    display: grid; place-items: center; cursor: pointer; padding: 0; color: var(--muted);
   }
-  .card { max-width: 420px; text-align: center; display: grid; gap: 14px; }
-  .card h1 { font-family: var(--display); font-weight: 400; font-size: clamp(44px, 12vw, 72px); margin: 0; line-height: 0.95; letter-spacing: 0.01em; text-wrap: balance; text-shadow: 0 0 24px rgba(143,216,255,0.45); }
-  .card p { margin: 0; color: var(--muted); line-height: 1.5; font-weight: 600; }
-  .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; text-align: left; margin: 4px auto 0; color: var(--ink); font-weight: 600; }
-  kbd { font-family: var(--body); font-weight: 800; font-size: 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; color: var(--wisp); }
+  .icon:hover { color: var(--ink); }
+  .icon svg { width: 16px; height: 16px; }
+  .icon:focus-visible { outline: 2px solid var(--wisp); outline-offset: 2px; }
+  .powers { display: grid; gap: 4px; }
+  .power { background: var(--panel); border: 1px solid var(--pc, var(--line)); border-radius: 8px; padding: 4px 9px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--pc); }
+  .power .bar { width: 90px; height: 4px; margin-top: 3px; }
+  .power .fill { background: var(--pc); transition: none; }
+
+  .boss { position: fixed; top: calc(92px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; width: min(320px, calc(100vw - 32px)); }
+  .boss small { font-family: var(--display); font-size: 16px; letter-spacing: 0.06em; color: var(--pumpkin); text-shadow: 0 0 12px rgba(255,138,42,0.6); }
+  .boss .bar { width: 100%; height: 9px; border: 1px solid rgba(255,138,42,0.5); }
+  .boss .fill { background: linear-gradient(90deg, #ff5a1a, var(--pumpkin)); }
+
+  .banner {
+    position: fixed; left: 0; right: 0; top: 30%; text-align: center; pointer-events: none; padding: 0 16px; opacity: 0;
+  }
+  .banner h2 { font-family: var(--display); font-weight: 400; font-size: clamp(36px, 9vw, 64px); margin: 0; line-height: 1; text-shadow: 0 0 24px rgba(143,216,255,0.55); }
+  .banner p { margin: 8px 0 0; color: var(--ink); font-weight: 800; font-size: 17px; text-shadow: 0 2px 8px #000; }
+  .banner.warn h2 { color: var(--pumpkin); text-shadow: 0 0 24px rgba(255,138,42,0.7); }
+  .banner.show { animation: banner 2.6s ease-out forwards; }
+  @keyframes banner { 0% { opacity: 0; transform: scale(1.25); } 10% { opacity: 1; transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+
+  #fx { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .ftext {
+    position: absolute; left: 0; top: 0; font-family: var(--display); font-size: 21px; color: var(--wisp); white-space: nowrap;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.5), 0 0 12px rgba(143,216,255,0.6); will-change: transform, opacity;
+  }
+  .ftext.gold { color: var(--gold); font-size: 26px; text-shadow: 0 2px 0 rgba(0,0,0,0.5), 0 0 14px rgba(255,211,90,0.7); }
+  .ftext.scare { color: var(--pumpkin); text-shadow: 0 2px 0 rgba(0,0,0,0.5), 0 0 12px rgba(255,138,42,0.6); }
+  .ftext.hurt { color: var(--danger); font-size: 24px; text-shadow: 0 2px 0 rgba(0,0,0,0.5); }
+  .ftext.big { font-size: 30px; color: var(--ink); }
+  .ftext.power { color: var(--ink); font-size: 19px; }
+
+  /* ability cooldowns (desktop) */
+  .abilities { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; gap: 8px; pointer-events: none; }
+  .ab { position: relative; overflow: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; display: flex; gap: 8px; align-items: center; font-family: var(--display); font-size: 17px; letter-spacing: 0.04em; }
+  .ab .cd { position: absolute; inset: 0; background: rgba(13,11,22,0.7); transform-origin: right; transform: scaleX(0); }
+  .ab.ready { border-color: var(--wisp); box-shadow: 0 0 14px rgba(143,216,255,0.3); }
+  kbd { font-family: var(--body); font-weight: 800; font-size: 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; color: var(--wisp); letter-spacing: 0; }
+
+  /* touch controls */
+  .touch-ctl { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 14px; align-items: flex-end; }
+  .round { width: 84px; height: 84px; border-radius: 50%; padding: 0; font-size: 21px; position: relative; }
+  .round.dash { width: 66px; height: 66px; font-size: 16px; background: #c9b8ff; }
+  .round::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(rgba(13,11,22,0.65) calc(var(--cd, 0) * 1turn), transparent 0); }
+  .stick { position: fixed; left: 0; top: 0; width: 110px; height: 110px; margin: -55px 0 0 -55px; border-radius: 50%; border: 2px solid rgba(143,216,255,0.35); background: rgba(143,216,255,0.06); pointer-events: none; display: none; }
+  .stick.on { display: block; }
+  .knob { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: rgba(143,216,255,0.45); }
+
+  .flash { position: fixed; inset: 0; pointer-events: none; background: rgba(255,80,40,0.28); opacity: 0; transition: opacity 0.3s; }
+  .flash.on { opacity: 1; transition: none; }
+  .vignette { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(255,40,60,0.38) 100%); }
+
+  /* ---------- overlays ---------- */
+  .overlay {
+    position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; overflow-y: auto;
+    background: radial-gradient(ellipse at center, rgba(13,11,22,0.5), rgba(13,11,22,0.92));
+  }
+  .overlay.dawn-bg { background: radial-gradient(ellipse at 50% 120%, rgba(255,160,110,0.28), rgba(30,16,40,0.9) 70%); }
+  .card { max-width: 440px; width: 100%; text-align: center; display: grid; gap: 14px; }
+  .card.wide { max-width: 760px; }
+  .card h1, .card h2 { font-family: var(--display); font-weight: 400; margin: 0; line-height: 0.95; letter-spacing: 0.01em; text-wrap: balance; text-shadow: 0 0 24px rgba(143,216,255,0.45); }
+  .card h1 { font-size: clamp(48px, 13vw, 80px); }
+  .card h2 { font-size: clamp(38px, 10vw, 58px); }
+  .card p { margin: 0; color: var(--muted); line-height: 1.5; font-weight: 600; text-wrap: pretty; }
+  .card p strong { color: var(--ink); }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; text-align: left; margin: 2px auto 0; color: var(--ink); font-weight: 600; font-size: 15px; }
+  .keys span:nth-child(odd) { text-align: right; white-space: nowrap; }
+  .tips { font-size: 14px; }
   .btn {
     pointer-events: auto; font-family: var(--display); font-size: 22px; letter-spacing: 0.04em; color: var(--night);
-    background: var(--wisp); border: 0; border-radius: 12px; padding: 12px 28px; cursor: pointer; justify-self: center;
-    box-shadow: 0 0 24px rgba(143,216,255,0.5);
+    background: var(--wisp); border: 0; border-radius: 12px; padding: 12px 30px; cursor: pointer; justify-self: center;
+    box-shadow: 0 0 24px rgba(143,216,255,0.5); transition: transform 0.1s;
   }
+  .btn:active { transform: scale(0.96); }
+  .btn.ghost { background: transparent; color: var(--muted); box-shadow: none; border: 1px solid var(--line); font-size: 17px; padding: 8px 20px; }
   .btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
-  .boo {
-    position: fixed; right: max(20px, calc(env(safe-area-inset-right, 0px) + 16px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-    width: 84px; height: 84px; border-radius: 50%; font-size: 22px; padding: 0; display: none;
+  .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .best { font-weight: 800; color: var(--gold); font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 6px; }
+  @media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
+  .up {
+    pointer-events: auto; cursor: pointer; text-align: left; display: grid; gap: 6px; align-content: start; padding: 16px; border-radius: 14px;
+    background: var(--panel); border: 1px solid var(--line); border-top: 4px solid var(--uc, var(--wisp)); transition: transform 0.12s, box-shadow 0.12s;
+    animation: deal 0.35s backwards;
   }
-  .boo.cool { opacity: 0.35; box-shadow: none; }
-  @media (pointer: coarse) { .boo { display: block; } .desktop-only { display: none; } }
-  @media (pointer: fine) { .touch-only { display: none; } }
-  .flash { position: fixed; inset: 0; pointer-events: none; background: rgba(255,80,40,0.25); opacity: 0; transition: opacity 0.25s; }
-  .flash.on { opacity: 1; transition: none; }
+  .up:nth-child(2) { animation-delay: 0.08s; } .up:nth-child(3) { animation-delay: 0.16s; }
+  @keyframes deal { from { opacity: 0; transform: translateY(18px); } }
+  .up:hover, .up:focus-visible { transform: translateY(-4px); box-shadow: 0 8px 28px rgba(143,216,255,0.22); outline: none; border-color: var(--uc, var(--wisp)); }
+  .up strong { font-family: var(--display); font-weight: 400; font-size: 22px; color: var(--uc, var(--ink)); }
+  .up span { color: var(--muted); font-weight: 600; font-size: 14px; line-height: 1.4; }
+  .up kbd { justify-self: start; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stats-grid div { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+  .stats-grid small { display: block; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .stats-grid b { font-family: var(--display); font-weight: 400; font-size: 26px; }
+  .stats-grid .wide { grid-column: span 2; }
+  .newbest { font-family: var(--display); color: var(--gold); font-size: 20px; letter-spacing: 0.06em; text-shadow: 0 0 16px rgba(255,211,90,0.6); animation: pulse 1s infinite alternate; }
+  @keyframes pulse { to { transform: scale(1.08); } }
+
+  @media (pointer: coarse) { .desktop-only { display: none !important; } }
+  @media (pointer: fine) { .touch-only { display: none !important; } }
+  @media (max-width: 420px) { .stat b { font-size: 21px; } .bar { width: 88px; } .stat.center { min-width: 96px; } }
+  @media (prefers-reduced-motion: reduce) { .banner.show { animation-duration: 2.6s; animation-timing-function: steps(1); } .newbest { animation: none; } }
 </style>
 </head>
 <body>
-<div class="hud" id="hud">
-  <div class="stat">
-    <small>Ghost HP</small>
-    <b id="hp">10</b>
-    <div class="hp-bar"><div class="hp-fill" id="hpFill" style="width:100%"></div></div>
+<div class="hud" id="hud" hidden>
+  <div class="col">
+    <div class="stat">
+      <small>Ghost HP</small>
+      <b><span id="hp">10</span><span class="dim">/<span id="hpMax">10</span></span></b>
+      <div class="bar"><div class="fill hp" id="hpFill"></div></div>
+    </div>
+    <div class="powers" id="powers"></div>
   </div>
-  <div class="stats">
-    <div class="stat"><small>Wisps</small><b id="score">0</b></div>
-    <div class="stat"><small>Time</small><b id="time">60</b></div>
+  <div class="stat center">
+    <small id="night">Night 1</small>
+    <b id="time">45</b>
+    <div class="bar"><div class="fill dawn" id="dawnFill"></div></div>
+  </div>
+  <div class="col right">
+    <div class="stat right">
+      <small>Score</small>
+      <b id="score">0</b>
+      <div class="combo" id="combo"><div class="bar"><div class="fill" id="comboFill"></div></div><b id="mult">x1</b></div>
+    </div>
+    <div class="icons">
+      <button class="icon" id="muteBtn" type="button" aria-label="Mute sound (M)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path id="muteWaves" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/><path id="muteX" d="m16 9 6 6m0-6-6 6" hidden/></svg>
+      </button>
+      <button class="icon" id="pauseBtn" type="button" aria-label="Pause (P)">
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+      </button>
+    </div>
   </div>
 </div>
+<div class="boss" id="boss" hidden><small>The Pumpkin King</small><div class="bar"><div class="fill" id="bossFill"></div></div></div>
+<div class="banner" id="banner"><h2 id="bannerTitle"></h2><p id="bannerSub"></p></div>
+<div id="fx"></div>
+<div class="abilities desktop-only" id="abilities" hidden>
+  <div class="ab" id="abBoo">BOO! <kbd>Space</kbd><div class="cd"></div></div>
+  <div class="ab" id="abDash">Dash <kbd>Shift</kbd><div class="cd"></div></div>
+</div>
+<div class="touch-ctl touch-only" id="touchCtl" hidden>
+  <button class="btn round dash" id="dashBtn" type="button">DASH</button>
+  <button class="btn round" id="booBtn" type="button">BOO!</button>
+</div>
+<div class="stick" id="stick"><div class="knob" id="knob"></div></div>
+<div class="vignette" id="vignette"></div>
 <div class="flash" id="flash"></div>
-<button class="btn boo" id="booBtn" type="button">BOO!</button>
 
-<div class="overlay" id="overlay">
+<div class="overlay" id="menu">
   <div class="card">
-    <h1 id="title">Ghost Haunt</h1>
-    <p id="blurb">Drift through the graveyard and gather glowing wisps before dawn. The pumpkins want you gone.</p>
-    <div class="keys desktop-only" id="keys">
+    <h1>Ghost Haunt</h1>
+    <p>Drift through the graveyard gathering glowing wisps. Survive each night until dawn, then choose a blessing. The pumpkins want you gone.</p>
+    <div class="keys desktop-only">
       <span><kbd>WASD</kbd> <kbd>↑↓←→</kbd></span><span>Float around</span>
-      <span><kbd>Space</kbd></span><span>BOO! scares away nearby pumpkins</span>
+      <span><kbd>Space</kbd></span><span>BOO! scares nearby foes</span>
+      <span><kbd>Shift</kbd></span><span>Dash, untouchable for a moment</span>
+      <span><kbd>P</kbd> <kbd>M</kbd></span><span>Pause · mute</span>
     </div>
-    <p class="touch-only" id="touchKeys">Drag anywhere to float. Tap BOO! to scare pumpkins.</p>
+    <p class="touch-only">Drag anywhere to float. Tap <strong>BOO!</strong> to scare foes and <strong>DASH</strong> to slip past them.</p>
+    <p class="tips">Chain pickups and scares for a combo multiplier. Ghosts drift through tombstones; pumpkins can't.</p>
+    <p class="best" id="menuBest" hidden></p>
     <button class="btn" id="startBtn" type="button">Haunt</button>
+  </div>
+</div>
+
+<div class="overlay dawn-bg" id="dawnScreen" hidden>
+  <div class="card wide">
+    <h2>Dawn breaks</h2>
+    <p id="dawnInfo"></p>
+    <p><strong>Choose a blessing for the next night.</strong></p>
+    <div class="cards" id="cards"></div>
+  </div>
+</div>
+
+<div class="overlay" id="pauseScreen" hidden>
+  <div class="card">
+    <h2>Paused</h2>
+    <p>The graveyard holds its breath.</p>
+    <div class="row">
+      <button class="btn" id="resumeBtn" type="button">Resume</button>
+      <button class="btn ghost" id="quitBtn" type="button">Quit run</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overScreen" hidden>
+  <div class="card">
+    <h2>Ghost busted</h2>
+    <div class="newbest" id="newBest" hidden>New best!</div>
+    <div class="stats-grid">
+      <div class="wide"><small>Score</small><b id="oScore">0</b></div>
+      <div><small>Nights survived</small><b id="oNights">0</b></div>
+      <div><small>Wisps</small><b id="oWisps">0</b></div>
+      <div><small>Foes scared</small><b id="oScares">0</b></div>
+      <div><small>Best combo</small><b id="oCombo">0</b></div>
+    </div>
+    <p class="best" id="overBest"></p>
+    <button class="btn" id="againBtn" type="button">Haunt again</button>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
-<script>
-(() => {
-  const ARENA = 15, GAME_TIME = 60, MAX_HP = 10, BOO_CD = 3, BOO_R = 4.5;
-  const $ = id => document.getElementById(id);
-
-  // ---------- renderer / scene ----------
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setSize(innerWidth, innerHeight);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.outputEncoding = THREE.sRGBEncoding;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  document.body.prepend(renderer.domElement);
-
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0d0b16);
-  scene.fog = new THREE.Fog(0x0d0b16, 14, 34);
-
-  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 100);
-  addEventListener('resize', () => {
-    camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
-  });
-
-  scene.add(new THREE.HemisphereLight(0x8a90d0, 0x1a1428, 0.6));
-  const moon = new THREE.DirectionalLight(0xb8c8ff, 0.9);
-  moon.position.set(-8, 14, 6); moon.castShadow = true;
-  moon.shadow.mapSize.set(2048, 2048);
-  Object.assign(moon.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18, near: 1, far: 40 });
-  scene.add(moon);
-
-  // ground
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(ARENA + 12, 64), new THREE.MeshStandardMaterial({ color: 0x1d2a22, roughness: 1 }));
-  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(ARENA - 0.08, ARENA + 0.08, 96), new THREE.MeshBasicMaterial({ color: 0x8fd8ff, transparent: true, opacity: 0.25 }));
-  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.01; scene.add(ring);
-
-  // moon disc
-  const moonDisc = new THREE.Mesh(new THREE.CircleGeometry(2.2, 32), new THREE.MeshBasicMaterial({ color: 0xf2efd8, fog: false }));
-  moonDisc.position.set(-14, 16, -28); scene.add(moonDisc);
-
-  // tombstones + dead trees as scenery (outside play area mostly, a few inside as obstacles-free decor)
-  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x5b5a6a, roughness: 0.9 });
-  function tombstone(x, z, s) {
-    const g = new THREE.Group();
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(0.9 * s, 1.1 * s, 0.25 * s), stoneMat);
-    slab.position.y = 0.55 * s;
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.45 * s, 0.45 * s, 0.25 * s, 20, 1, false, 0, Math.PI), stoneMat);
-    cap.rotation.set(Math.PI / 2, Math.PI / 2, 0); cap.position.y = 1.1 * s;
-    [slab, cap].forEach(m => { m.castShadow = true; m.receiveShadow = true; g.add(m); });
-    g.position.set(x, 0, z); g.rotation.y = (Math.random() - 0.5) * 0.5; g.rotation.z = (Math.random() - 0.5) * 0.15;
-    scene.add(g);
-  }
-  for (let i = 0; i < 26; i++) {
-    const a = Math.random() * Math.PI * 2, r = ARENA + 1.5 + Math.random() * 8;
-    tombstone(Math.cos(a) * r, Math.sin(a) * r, 0.8 + Math.random() * 0.6);
-  }
-  for (let i = 0; i < 7; i++) {
-    const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * (ARENA - 6);
-    tombstone(Math.cos(a) * r, Math.sin(a) * r, 0.6 + Math.random() * 0.3);
-  }
-  const barkMat = new THREE.MeshStandardMaterial({ color: 0x2a2030, roughness: 1 });
-  function tree(x, z) {
-    const g = new THREE.Group();
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.35, 4, 7), barkMat);
-    trunk.position.y = 2; trunk.castShadow = true; g.add(trunk);
-    for (let i = 0; i < 4; i++) {
-      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.12, 1.8, 5), barkMat);
-      b.position.set(0, 2.6 + i * 0.4, 0); b.rotation.z = (i % 2 ? 1 : -1) * (0.7 + Math.random() * 0.4);
-      b.rotation.y = Math.random() * 6; b.translateY(0.8); b.castShadow = true; g.add(b);
-    }
-    g.position.set(x, 0, z); scene.add(g);
-  }
-  for (let i = 0; i < 9; i++) { const a = Math.random() * Math.PI * 2, r = ARENA + 4 + Math.random() * 6; tree(Math.cos(a) * r, Math.sin(a) * r); }
-
-  // ---------- ghost (player) ----------
-  const player = new THREE.Group(); scene.add(player);
-  const ghostMat = new THREE.MeshPhysicalMaterial({ color: 0xeef2ff, roughness: 0.55, emissive: 0x5d7bd8, emissiveIntensity: 0.35, sheen: 1, sheenColor: new THREE.Color(0x9fb8ff) });
-  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x0a0612, roughness: 0.25 });
-  const glow = new THREE.PointLight(0x9fc4ff, 1.2, 6); glow.position.y = 1; player.add(glow);
-  const ghostScale = 0.55;
-
-  function buildFallbackGhost() {
-    const pts = [];
-    for (let i = 0; i <= 20; i++) { const t = i / 20; pts.push(new THREE.Vector2(Math.sin(t * Math.PI / 2) * (0.75 + t * 0.5 * t), 2.6 - t * 2.6)); }
-    const m = new THREE.Mesh(new THREE.LatheGeometry(pts, 48), ghostMat);
-    m.material.side = THREE.DoubleSide; m.castShadow = true;
-    const g = new THREE.Group(); g.add(m);
-    [-0.25, 0.25].forEach(x => { const e = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), eyeMat); e.scale.set(0.11, 0.17, 0.05); e.position.set(x, 1.9, 0.72); g.add(e); });
-    return g;
-  }
-  new THREE.GLTFLoader().load('assets/ghost.glb', gltf => {
-    const g = gltf.scene;
-    g.traverse(o => {
-      if (!o.isMesh) return;
-      const isEye = /eye/i.test(o.name) || /eye/i.test(o.material && o.material.name);
-      o.material = isEye ? eyeMat : ghostMat;
-      if (!isEye) o.material.side = THREE.DoubleSide;
-      o.castShadow = true;
-    });
-    g.scale.setScalar(ghostScale); player.add(g);
-  }, undefined, () => { const g = buildFallbackGhost(); g.scale.setScalar(ghostScale); player.add(g); });
-
-  // shadow blob under floating ghost
-  const blob = new THREE.Mesh(new THREE.CircleGeometry(0.6, 32), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 }));
-  blob.rotation.x = -Math.PI / 2; blob.position.y = 0.02; scene.add(blob);
-
-  // ---------- wisps ----------
-  const wispGeo = new THREE.SphereGeometry(0.22, 16, 12);
-  const wispMat = new THREE.MeshBasicMaterial({ color: 0x8fd8ff });
-  const haloMat = new THREE.MeshBasicMaterial({ color: 0x8fd8ff, transparent: true, opacity: 0.25, depthWrite: false });
-  const wisps = [];
-  function placeWisp(w) {
-    const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * (ARENA - 1.5);
-    w.position.set(Math.cos(a) * r, 0.9, Math.sin(a) * r); w.userData.t = Math.random() * 6;
-  }
-  for (let i = 0; i < 7; i++) {
-    const w = new THREE.Mesh(wispGeo, wispMat);
-    const h = new THREE.Mesh(wispGeo, haloMat); h.scale.setScalar(2); w.add(h);
-    placeWisp(w); scene.add(w); wisps.push(w);
-  }
-
-  // ---------- pumpkins ----------
-  const pumpkinMat = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.6, emissive: 0x401000, emissiveIntensity: 0.4 });
-  const stemMat = new THREE.MeshStandardMaterial({ color: 0x3f5a1e });
-  const faceMat = new THREE.MeshBasicMaterial({ color: 0xffd25a });
-  const pumpkinGeo = (() => {
-    const g = new THREE.SphereGeometry(0.55, 32, 20); const p = g.attributes.position;
-    for (let i = 0; i < p.count; i++) {
-      const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x);
-      const k = 1 + 0.07 * Math.cos(a * 8); p.setXYZ(i, x * k, y * 0.8, z * k);
-    }
-    g.computeVertexNormals(); return g;
-  })();
-  const eyeGeo = new THREE.ConeGeometry(0.1, 0.14, 3);
-  const mouthGeo = new THREE.BoxGeometry(0.32, 0.07, 0.05);
-  const pumpkins = [];
-  function spawnPumpkin() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(pumpkinGeo, pumpkinMat); body.castShadow = true; body.position.y = 0.45; g.add(body);
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.22, 6), stemMat); stem.position.y = 0.95; stem.rotation.z = 0.25; g.add(stem);
-    [-0.17, 0.17].forEach(x => { const e = new THREE.Mesh(eyeGeo, faceMat); e.position.set(x, 0.55, 0.5); e.rotation.x = Math.PI / 2; e.rotation.y = Math.PI; g.add(e); });
-    const m = new THREE.Mesh(mouthGeo, faceMat); m.position.set(0, 0.32, 0.5); g.add(m);
-    const a = Math.random() * Math.PI * 2;
-    g.position.set(Math.cos(a) * (ARENA - 0.5), 0, Math.sin(a) * (ARENA - 0.5));
-    g.userData = { hop: Math.random() * 6, speed: 1.6 + Math.random() * 0.8, dying: 0, vx: 0, vz: 0 };
-    scene.add(g); pumpkins.push(g);
-  }
-
-  // boo shockwave
-  const wave = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 64), new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
-  wave.rotation.x = -Math.PI / 2; wave.position.y = 0.1; scene.add(wave);
-  let waveT = 1;
-
-  // ---------- input ----------
-  const keys = {};
-  addEventListener('keydown', e => {
-    keys[e.code] = true;
-    if (e.code === 'Space') { e.preventDefault(); boo(); }
-    if (e.code === 'Enter' && state !== 'play') start();
-  });
-  addEventListener('keyup', e => { keys[e.code] = false; });
-  const touch = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
-  renderer.domElement.addEventListener('pointerdown', e => { touch.id = e.pointerId; touch.ox = touch.x = e.clientX; touch.oy = touch.y = e.clientY; });
-  addEventListener('pointermove', e => { if (e.pointerId === touch.id) { touch.x = e.clientX; touch.y = e.clientY; } });
-  const endTouch = e => { if (e.pointerId === touch.id) touch.id = null; };
-  addEventListener('pointerup', endTouch); addEventListener('pointercancel', endTouch);
-  $('booBtn').addEventListener('pointerdown', e => { e.stopPropagation(); boo(); });
-  $('startBtn').addEventListener('click', start);
-
-  // ---------- game state ----------
-  let state = 'menu', hp, score, timeLeft, booCd, invuln, spawnT, best = 0;
-  try { best = +localStorage.getItem('ghost-haunt-best') || 0; } catch (e) {}
-  const vel = new THREE.Vector3();
-
-  function start() {
-    pumpkins.forEach(p => scene.remove(p)); pumpkins.length = 0;
-    wisps.forEach(placeWisp);
-    hp = MAX_HP; score = 0; timeLeft = GAME_TIME; booCd = 0; invuln = 0; spawnT = 0;
-    player.position.set(0, 0, 0); vel.set(0, 0, 0);
-    for (let i = 0; i < 3; i++) spawnPumpkin();
-    state = 'play'; $('overlay').hidden = true; updateHud();
-  }
-  function end(won) {
-    state = 'over';
-    if (score > best) { best = score; try { localStorage.setItem('ghost-haunt-best', best); } catch (e) {} }
-    $('title').textContent = won ? 'Dawn breaks' : 'Ghost busted';
-    $('blurb').textContent = `You gathered ${score} wisp${score === 1 ? '' : 's'}. Best: ${best}.`;
-    $('keys').hidden = true; $('touchKeys').hidden = true;
-    $('startBtn').textContent = 'Haunt again';
-    $('overlay').hidden = false;
-  }
-  function boo() {
-    if (state !== 'play' || booCd > 0) return;
-    booCd = BOO_CD; waveT = 0;
-    pumpkins.forEach(p => {
-      if (p.userData.dying) return;
-      const dx = p.position.x - player.position.x, dz = p.position.z - player.position.z;
-      if (dx * dx + dz * dz < BOO_R * BOO_R) { p.userData.dying = 0.001; score += 1; }
-    });
-  }
-  function hurt() {
-    hp -= 1; invuln = 1.1;
-    const f = $('flash'); f.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on')));
-    if (hp <= 0) end(false);
-  }
-  function updateHud() {
-    $('hp').textContent = Math.max(0, hp);
-    $('hpFill').style.width = (Math.max(0, hp) / MAX_HP * 100) + '%';
-    $('score').textContent = score;
-    $('time').textContent = Math.ceil(Math.max(0, timeLeft));
-    $('booBtn').classList.toggle('cool', booCd > 0);
-  }
-
-  // ---------- loop ----------
-  const clock = new THREE.Clock();
-  const camOffset = new THREE.Vector3(0, 9, 10);
-  let t = 0;
-  function tick() {
-    const dt = Math.min(clock.getDelta(), 0.05); t += dt;
-
-    if (state === 'play') {
-      timeLeft -= dt; booCd = Math.max(0, booCd - dt); invuln = Math.max(0, invuln - dt);
-      if (timeLeft <= 0) end(true);
-
-      // movement input
-      let ix = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
-      let iz = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0);
-      if (touch.id !== null) {
-        const dx = touch.x - touch.ox, dy = touch.y - touch.oy, d = Math.hypot(dx, dy);
-        if (d > 8) { ix = dx / Math.max(d, 60); iz = dy / Math.max(d, 60); }
-      }
-      const len = Math.hypot(ix, iz); if (len > 1) { ix /= len; iz /= len; }
-      const accel = 28, maxV = 6.5;
-      vel.x += ix * accel * dt; vel.z += iz * accel * dt;
-      vel.multiplyScalar(Math.pow(0.02, dt)); // floaty drag
-      if (vel.length() > maxV) vel.setLength(maxV);
-      player.position.addScaledVector(vel, dt);
-      const pr = Math.hypot(player.position.x, player.position.z);
-      if (pr > ARENA - 0.6) { player.position.x *= (ARENA - 0.6) / pr; player.position.z *= (ARENA - 0.6) / pr; }
-      if (vel.lengthSq() > 0.3) {
-        const target = Math.atan2(vel.x, vel.z);
-        let d = target - player.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d));
-        player.rotation.y += d * Math.min(1, dt * 8);
-      }
-
-      // wisps
-      wisps.forEach(w => {
-        const dx = w.position.x - player.position.x, dz = w.position.z - player.position.z;
-        if (dx * dx + dz * dz < 1.0) { score += 1; placeWisp(w); }
-      });
-
-      // pumpkins
-      spawnT += dt;
-      const interval = Math.max(1.4, 4 - (GAME_TIME - timeLeft) * 0.05);
-      if (spawnT > interval && pumpkins.length < 14) { spawnT = 0; spawnPumpkin(); }
-      const ramp = 1 + (GAME_TIME - timeLeft) / GAME_TIME * 0.8;
-      for (let i = pumpkins.length - 1; i >= 0; i--) {
-        const p = pumpkins[i], u = p.userData;
-        if (u.dying) {
-          u.dying += dt; p.scale.setScalar(Math.max(0.001, 1 - u.dying * 2.5)); p.rotation.y += dt * 18; p.position.y += dt * 3;
-          if (u.dying > 0.4) { scene.remove(p); pumpkins.splice(i, 1); }
-          continue;
-        }
-        const dx = player.position.x - p.position.x, dz = player.position.z - p.position.z, d = Math.hypot(dx, dz) || 1;
-        u.vx += (dx / d * u.speed * ramp - u.vx) * Math.min(1, dt * 2);
-        u.vz += (dz / d * u.speed * ramp - u.vz) * Math.min(1, dt * 2);
-        p.position.x += u.vx * dt; p.position.z += u.vz * dt;
-        u.hop += dt * 9; p.position.y = Math.abs(Math.sin(u.hop)) * 0.25;
-        p.rotation.y = Math.atan2(u.vx, u.vz);
-        if (d < 0.95 && invuln <= 0 && state === 'play') {
-          hurt(); u.vx = -dx / d * 9; u.vz = -dz / d * 9;
-        }
-      }
-      updateHud();
-    }
-
-    // ghost bob + flicker when hurt
-    const bob = Math.sin(t * 2.2) * 0.12;
-    player.position.y = 0.45 + bob;
-    player.rotation.z = Math.sin(t * 1.7) * 0.05 - vel.x * 0.02;
-    player.rotation.x = vel.z * 0.02;
-    player.visible = invuln <= 0 || Math.floor(t * 14) % 2 === 0;
-    blob.position.set(player.position.x, 0.02, player.position.z);
-    blob.scale.setScalar(1 - bob * 0.8);
-
-    wisps.forEach(w => { w.userData.t += dt; w.position.y = 0.9 + Math.sin(w.userData.t * 2) * 0.2; const s = 1 + Math.sin(w.userData.t * 5) * 0.12; w.scale.setScalar(s); });
-
-    if (waveT < 1) {
-      waveT += dt * 2.5;
-      wave.position.set(player.position.x, 0.1, player.position.z);
-      wave.scale.setScalar(0.5 + waveT * BOO_R); wave.material.opacity = (1 - waveT) * 0.8;
-    } else wave.material.opacity = 0;
-
-    // camera follow (menu: slow orbit)
-    if (state === 'menu') {
-      camera.position.set(Math.sin(t * 0.15) * 12, 7, Math.cos(t * 0.15) * 12);
-      camera.lookAt(0, 1, 0);
-    } else {
-      const want = player.position.clone().add(camOffset);
-      camera.position.lerp(want, Math.min(1, dt * 4));
-      camera.lookAt(player.position.x, 0.8, player.position.z);
-    }
-    moon.position.set(player.position.x - 8, 14, player.position.z + 6);
-    moon.target.position.copy(player.position); moon.target.updateMatrixWorld();
-
-    renderer.render(scene, camera);
-    requestAnimationFrame(tick);
-  }
-  tick();
-})();
-</script>
+<script src="game.js"></script>
 </body>
 </html>
