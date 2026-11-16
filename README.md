@@ -1,6 +1,6 @@
 # Ghost Haunt
 
-A tiny Three.js browser game starring **The Basic Ghost** (HP 10, mob type: Spectral), modeled and rendered in Blender.
+An endless-night horde survivor in Three.js, starring **The Basic Ghost**, modeled and rendered in Blender.
 
 ![Ghost render](assets/ghost_render.png)
 
@@ -13,32 +13,50 @@ python3 -m http.server 8000
 # then visit http://localhost:8000
 ```
 
-Or play the GitHub Pages build linked in the repo sidebar.
-
 ## How to play
 
-Survive each night until dawn. Between nights, pick one of three **blessings** (bigger BOO, faster dash, more HP, Echo BOO, Cold Touch…). The run ends when the ghost runs out of HP.
+Your weapons fire on their own. You float, dodge, collect soul gems and pick upgrades. Survive as long as you can and chase the top of the local leaderboard.
 
 | Action | Keyboard | Touch |
 | --- | --- | --- |
 | Float | WASD / arrow keys | Drag anywhere |
-| BOO! (scare nearby foes) | Space | BOO! button |
-| Dash (briefly untouchable) | Shift | DASH button |
+| Dash (untouchable for a moment) | Shift | DASH button |
+| BOO! (screen-clearing scream, charged by kills) | Space | BOO! button |
+| Pick an upgrade / reroll | 1–4 / R | Tap a card |
 | Pause / mute | P or Esc / M | Top-right buttons |
 
-- **Wisps** score points; chaining pickups and scares builds a combo multiplier (up to x6). Golden wisps are worth 5 and try to drift away.
-- **Pumpkins** chase you and fan out to surround you. Tombstones block them, but the ghost drifts right through.
-- **Bats** (night 2+) circle, then swoop at a red marker. Dodge it.
-- **The Pumpkin King** (every 3rd night) takes several BOOs and charges along a red lane. Make him charge into a tombstone to daze him.
-- **Power-ups**: Heal, Sugar Rush (speed), Wisp Magnet, and Phantom (pass through foes and scare them).
+- **Soul gems** fill the XP bar. Each level offers 3 cards (4 with luck): new weapons, weapon levels or passives. You hold up to 6 weapons and 6 passives, with 2 rerolls per run.
+- **Evolutions**: max a weapon (level 8) while owning its partner passive and the next level-up or chest offers its evolution.
+- **Kill chains** multiply your score (x1.5 at 25, up to x5 at 500). Getting hit breaks the chain.
+- **Lanterns** around the graveyard break open into gold, candy (heal), a soul vacuum, a frost hourglass (freezes foes) or a doom bell (clears the screen).
+- **Elites** (every 50 s) and **bosses** (every 3 min) drop treasure chests that upgrade your build.
+- **Events**: bat swarms, encircling rings, the Pumpkin King (charges and fires seeds), the Wraith Queen (bullet spirals, summons wraiths) and the Witching Hour (double spawns, double score).
 
-All sound is synthesized with WebAudio, so there are no audio files.
+### Arsenal
 
-## Assets
+| Weapon | Partner passive | Evolution |
+| --- | --- | --- |
+| Wisp Bolt | Grave Clock | Soul Storm |
+| Chill Aura | Ectoplasm | Dread Halo |
+| Candle Ring | Hourglass | Hellfire Halo |
+| Hex Bolt | Twin Candle | Witch Storm |
+| Reaper Scythe | Grim Ring | Death's Harvest |
+| Ecto Flask | Soul Lantern | Plague Marsh |
+| Banshee Wail | Swift Shroud | Shriek of the Damned |
+| Moonfall | Four-Leaf Clover | Blood Moon |
+
+The other passives are Wailing Bell (area), Iron Coffin (armor), Graveberry (regen) and Old Tome (XP).
+
+The pause screen has toggles for glow (bloom), damage numbers and screen shake. All sound is synthesized with WebAudio, so there are no audio files.
+
+## Files
 
 | File | What |
 | --- | --- |
-| `index.html` / `game.js` | Page + HUD, and the game itself (Three.js r147) |
+| `index.html` | Page, HUD and menus |
+| `game.js` | The game (Three.js r147): instanced hordes, weapons, director, UI logic |
+| `audio.js` | Synthesized SFX and adaptive music |
+| `icons.js` | Inline SVG item icons |
 | `assets/ghost.glb` | Game-ready ghost model exported from Blender |
-| `assets/ghost.blend` | Source Blender scene (model, materials, lighting, camera) |
+| `assets/ghost.blend` | Source Blender scene |
 | `assets/ghost_render.png` | Cycles render of the ghost |
